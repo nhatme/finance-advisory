@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: uit-lab-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: sqlite:////app/data/app.db
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - api_data:/app/data
+    depends_on:
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: uit-lab-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    image: node:20-alpine
+    container_name: uit-lab-web
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./web:/app
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - api
+
+volumes:
+  api_data:
+  ollama_data:

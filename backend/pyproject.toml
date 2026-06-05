@@ -1,0 +1,22 @@
+[project]
+name = "uit-lab-backend"
+version = "0.2.0"
+description = "AI Financial Product Advisor — RAG + Multi-agent backend"
+requires-python = ">=3.10"
+readme = { content = "FastAPI + LangGraph + SQLAlchemy + ChromaDB", content-type = "text/plain" }
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
