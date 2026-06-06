@@ -34,6 +34,14 @@ export interface Reasoning {
   cons: string[]
   score: number
   score_breakdown: Record<string, number>
+  llm_rationale?: string | null
+  citations?: Citation[]
+}
+
+export interface Citation {
+  chunk_id: string
+  source: string
+  snippet: string
 }
 
 export interface Recommendation {

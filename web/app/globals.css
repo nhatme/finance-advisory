@@ -2,32 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 @layer base {
-  :root {
-    color-scheme: light;
-  }
-  body {
-    @apply bg-slate-50 text-slate-900 antialiased;
-  }
+  :root { color-scheme: light; }
+  body { @apply bg-slate-50 text-slate-900 antialiased; }
+  * { @apply transition-colors duration-150; }
 }
 
 @layer components {
+  /* ── Buttons ─────────────────────────────────── */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+           bg-gradient-to-br from-brand-500 to-brand-700
+           px-5 py-2.5 text-sm font-semibold text-white shadow-md
+           hover:from-brand-600 hover:to-brand-800 hover:shadow-lg
+           active:scale-95 disabled:cursor-not-allowed disabled:opacity-55
+           transition-all duration-200;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+           border border-slate-200 bg-white px-4 py-2 text-sm font-medium
+           text-slate-700 shadow-sm hover:border-brand-300 hover:bg-brand-50
+           hover:text-brand-700 active:scale-95 transition-all duration-150;
   }
+  .btn-outline-brand {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+           border-2 border-brand-300 bg-brand-50 px-4 py-2 text-sm font-semibold
+           text-brand-700 hover:bg-brand-100 active:scale-95 transition-all duration-150;
+  }
+
+  /* ── Cards ───────────────────────────────────── */
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-card;
   }
+  .card-hover {
+    @apply card hover:border-brand-200 hover:shadow-card-hover transition-shadow duration-200;
+  }
+  .card-glass {
+    @apply rounded-2xl border border-white/60 bg-white/80 backdrop-blur-sm p-5 shadow-card;
+  }
+
+  /* ── Form ────────────────────────────────────── */
   .label {
-    @apply block text-sm font-medium text-slate-700 mb-1.5;
+    @apply block text-sm font-semibold text-slate-700 mb-1.5;
   }
   .input {
-    @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
+    @apply block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm
+           shadow-sm placeholder:text-slate-400
+           focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200
+           transition-all duration-150;
   }
+
+  /* ── Badges / Pills ──────────────────────────── */
   .pill {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
+  .badge {
+    @apply inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold;
+  }
+
+  /* ── Section headings ────────────────────────── */
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-widest text-slate-400;
+  }
+}
+
+/* ── Print ───────────────────────────────────────── */
+@media print {
+  nav, footer, .print\:hidden { display: none !important; }
+  body  { background: white; }
+  .fixed { position: static !important; overflow: visible !important; }
 }
