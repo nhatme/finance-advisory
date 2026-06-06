@@ -256,37 +256,174 @@ finance-advisory/
 
 ## Running Locally
 
-### With Docker (recommended)
+### The fast way — one command
 
 ```bash
-cp backend/.env.example backend/.env
-# Edit backend/.env — set at least one of ANTHROPIC_API_KEY / OPENAI_API_KEY
-# or leave all blank to run with the rule-based stub (no LLM calls)
+bash dev.sh
+```
 
+That's it. `dev.sh` is the single entry point for local development.
+It handles everything automatically and streams colour-coded logs from both services in one terminal.
+
+---
+
+### `dev.sh` — full reference
+
+| Command | What it does |
+|---|---|
+| `bash dev.sh` | Auto-setup on first run, then start API + Web |
+| `bash dev.sh --setup` | Force re-run setup (reinstall deps, re-seed DB), then start |
+| `bash dev.sh --stop` | Kill any running API / Web processes from a previous session |
+
+**What happens on first run (`bash dev.sh`):**
+
+1. Detects that `.venv`, `node_modules`, or `app.db` are missing → runs `setup.sh` automatically
+2. Copies `.env` files from examples if they don't exist yet
+3. Runs DB migrations + seeds the product catalog and vector index (idempotent)
+4. Starts the FastAPI backend with `uvicorn --reload` on port **8000**
+5. Starts the Next.js frontend with `npm run dev` on port **3000**
+6. Streams logs from both processes, colour-coded: `[api]` in blue, `[web]` in green
+7. Polls until both services respond, then prints the ready summary
+
+**On every subsequent run:**
+
+Steps 1–2 are skipped (already set up). Steps 3–7 run as normal.
+
+**Stopping:**
+
+Press `Ctrl+C` in the terminal — both processes are killed cleanly.
+Alternatively run `bash dev.sh --stop` from another terminal.
+
+**Logs:**
+
+Written to `.logs/api.log` and `.logs/web.log` (git-ignored).
+Useful if the terminal scrolled past an error.
+
+**LLM configuration** (optional — works without any key in stub mode):
+
+```bash
+# Edit backend/.env and set one of:
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+# or leave blank to use the rule-based stub (no LLM calls, full pipeline still works)
+```
+
+---
+
+### Shell scripts — what each one does
+
+| Script | Purpose | When to use directly |
+|---|---|---|
+| `dev.sh` | **Central entry point** — setup + start everything | Always start here |
+| `setup.sh` | Install deps, migrate DB, seed data, build slides | CI pipelines, or when you want to prepare without starting |
+| `backend/run.sh` | Backend only — setup + start uvicorn | When you only want the API (e.g. testing with Postman) |
+| `backend/entrypoint.sh` | Docker only — migrate + seed + start | Called automatically by `docker-compose.yml` |
+| `slides/build.sh` | Build Marp slides → `web/public/slides/index.html` | Only needed if you edit `slides/deck.md` |
+
+> **Is `setup.sh` still necessary?**  
+> Yes — `dev.sh` calls it internally on first run, so you never need to run it manually for local dev.
+> It remains useful for CI environments, Docker builds, or any situation where you want to prepare
+> the project without starting the servers.
+
+---
+
+### With Docker — recommended for Windows & Mac
+
+No Python, no Node.js, no `setup.sh` needed on your machine. Docker handles everything inside containers.
+
+**Requirement:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your OS, then make sure it is running before proceeding.
+
+---
+
+#### Windows
+
+1. Install Docker Desktop for Windows and start it. Wait until the whale icon in the taskbar is steady (not animating).
+
+2. Open **Command Prompt** or **PowerShell**, navigate to the project folder, then run:
+
+```bat
+cd path\to\finance-advisory
 docker compose up --build
 ```
 
-Services: API → `http://localhost:8000` · Web → `http://localhost:3000` · Ollama → `http://localhost:11434`
+3. First run takes a few minutes (Docker downloads base images and installs all dependencies). When you see output from both `uit-lab-api` and `uit-lab-web` the app is ready.
 
-### Without Docker
+4. Open your browser and go to **http://localhost:3000**
+
+To stop, press `Ctrl+C` in the same window, then run:
+```bat
+docker compose down
+```
+
+---
+
+#### Mac
+
+1. Install Docker Desktop for Mac (choose Apple Silicon or Intel depending on your chip) and start it. Wait until the Docker icon in the menu bar is steady.
+
+2. Open **Terminal**, navigate to the project folder, then run:
 
 ```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # configure LLM_PROVIDER and keys
-
-alembic upgrade head           # create DB schema
-python -m scripts.seed         # seed products + index T&C docs
-uvicorn app.main:app --reload  # http://localhost:8000
-
-# Frontend (separate terminal)
-cd web
-npm install
-cp .env.local.example .env.local
-npm run dev                    # http://localhost:3000
+cd path/to/finance-advisory
+docker compose up --build
 ```
+
+3. First run takes a few minutes. When both services are up, open **http://localhost:3000**
+
+To stop, press `Ctrl+C`, then run:
+```bash
+docker compose down
+```
+
+---
+
+#### Services started by Docker
+
+| Service | URL | Notes |
+|---|---|---|
+| Web UI | http://localhost:3000 | Next.js frontend |
+| API | http://localhost:8000 | FastAPI backend |
+| API Docs | http://localhost:8000/docs | Swagger UI |
+| Ollama | http://localhost:11434 | Local LLM daemon |
+
+---
+
+#### Optional — enable AI rationale
+
+Without any API key the app runs fully in **stub mode** (rule-based scoring, no LLM calls). Everything works except the 2-sentence AI rationale on each product card.
+
+To enable it, create `backend/.env` before running Docker:
+
+**Windows (Command Prompt):**
+```bat
+copy backend\.env.example backend\.env
+:: Open backend\.env in Notepad and add your key:
+::   ANTHROPIC_API_KEY=sk-ant-...
+::   or OPENAI_API_KEY=sk-...
+docker compose up --build
+```
+
+**Mac (Terminal):**
+```bash
+cp backend/.env.example backend/.env
+# Open backend/.env in any editor and add your key:
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   or OPENAI_API_KEY=sk-...
+docker compose up --build
+```
+
+---
+
+#### Useful Docker commands
+
+| Command | What it does |
+|---|---|
+| `docker compose up --build` | Build images and start all services |
+| `docker compose up` | Start without rebuilding (faster, use after first run) |
+| `docker compose down` | Stop and remove containers |
+| `docker compose down -v` | Stop + wipe all data (full clean reset) |
+| `docker compose logs -f api` | Stream logs from the backend only |
+| `docker compose logs -f web` | Stream logs from the frontend only |
 
 ---
 

@@ -7,17 +7,31 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env
+      - path: ./backend/.env
+        required: false        # safe to run without .env — all keys have defaults
     environment:
       DATABASE_URL: sqlite:////app/data/app.db
       CHROMA_PERSIST_DIR: /app/data/chroma
       OLLAMA_HOST: http://ollama:11434
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      CORS_ORIGINS: http://localhost:3000
     volumes:
       - api_data:/app/data
     depends_on:
       ollama:
         condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 
   ollama:
     image: ollama/ollama:latest
@@ -41,12 +55,17 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: development
     volumes:
       - ./web:/app
-    command: sh -c "npm install && npm run dev"
+      - web_node_modules:/app/node_modules   # cache node_modules in a volume
+    command: sh -c "npm install --silent && npm run dev"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   api_data:
   ollama_data:
+  web_node_modules:   # keeps node_modules inside Docker, avoids host/container conflicts
