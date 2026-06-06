@@ -17,7 +17,6 @@ services:
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      CORS_ORIGINS: http://localhost:3000
     volumes:
       - api_data:/app/data
     restart: unless-stopped
@@ -36,7 +35,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
       NODE_ENV: development
     volumes:
       - ./web:/app

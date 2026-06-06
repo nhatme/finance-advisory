@@ -37,11 +37,17 @@ class Settings(BaseSettings):
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
 
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "*"
+    # Must be False when cors_origins=* (browser spec). Set True only with explicit origin list.
+    cors_allow_credentials: bool = False
 
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    def model_post_init(self, __context: object) -> None:
+        if "*" in self.cors_origins_list and self.cors_allow_credentials:
+            raise ValueError("CORS_ALLOW_CREDENTIALS cannot be true when CORS_ORIGINS=*")
 
 
 settings = Settings()

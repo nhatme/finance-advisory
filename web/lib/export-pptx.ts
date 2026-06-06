@@ -1,20 +1,51 @@
 // Dynamically imported to avoid SSR — only runs in the browser.
 
-const BG       = '0F172A'  // slate-950
-const BG_CARD  = '1E3A8A'  // brand-900
-const WHITE    = 'FFFFFF'
-const BLUE_200 = 'BFDBFE'
-const BLUE_300 = '93C5FD'
-const BRAND_400 = '60A5FA'
-const BRAND_600 = '2563EB'
-const SLATE_600 = '475569'
+/** Per-deck colour palette (hex strings, no leading '#'). */
+export type PptxPalette = {
+  bg: string         // body-slide background
+  coverBg: string    // cover-slide background
+  coverTitle: string
+  coverSubtitle: string
+  coverTag: string
+  heading: string    // slide titles + box headings
+  subtitle: string   // subtitle / italic
+  body: string       // body text
+  strong: string     // **bold** runs
+  accent: string     // bullets ▸, accent marks, rules
+  accentDeep: string // table header fill, badges, accent bar
+  surface: string    // card / box fill
+  highlightBg: string
+  highlightLine: string
+  highlightText: string
+  pageNum: string
+}
+
+// Default palette = original blue/slate look (keeps the legacy /slides deck unchanged).
+const DEFAULT_PALETTE: PptxPalette = {
+  bg:           '0F172A',
+  coverBg:      '1E3A8A',
+  coverTitle:   'FFFFFF',
+  coverSubtitle:'BFDBFE',
+  coverTag:     '93C5FD',
+  heading:      'FFFFFF',
+  subtitle:     'BFDBFE',
+  body:         'BFDBFE',
+  strong:       'FFFFFF',
+  accent:       '60A5FA',
+  accentDeep:   '2563EB',
+  surface:      '1E293B',
+  highlightBg:  '1D4ED8',
+  highlightLine:'60A5FA',
+  highlightText:'60A5FA',
+  pageNum:      '475569',
+}
 
 // Parse **bold** markers into PptxGenJS text run objects
-function richText(s: string, base: Record<string, unknown> = {}) {
+function richText(s: string, base: Record<string, unknown>, strong: string) {
   const parts = s.split(/(\*\*[^*]+\*\*)/)
   return parts.map(p =>
     p.startsWith('**') && p.endsWith('**')
-      ? { text: p.slice(2, -2), options: { ...base, bold: true, color: WHITE } }
+      ? { text: p.slice(2, -2), options: { ...base, bold: true, color: strong } }
       : { text: p,              options: { ...base } }
   )
 }
@@ -33,7 +64,11 @@ type Slide = {
   cards?: { icon: string; label: string }[]
 }
 
-export async function exportToPptx(slides: Slide[]) {
+export async function exportToPptx(
+  slides: Slide[],
+  fileName = 'uit-lab-financial-advisor.pptx',
+  palette: PptxPalette = DEFAULT_PALETTE,
+) {
   // Dynamic import — avoids Next.js SSR crash (pptxgenjs uses window/document)
   const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
@@ -42,6 +77,18 @@ export async function exportToPptx(slides: Slide[]) {
   pptx.title   = 'UIT-LAB Financial Advisor'
   pptx.subject = 'AI Tư vấn So sánh & Gợi ý Sản phẩm Tài chính — RAG + Multi-agent'
   pptx.author  = 'UIT-LAB'
+
+  // Map palette → local names used throughout the layout code below.
+  const P         = palette
+  const BG        = P.bg
+  const BG_CARD   = P.coverBg
+  const WHITE     = P.heading      // slide titles + box/card headings
+  const BLUE_200  = P.body         // body text + table cells
+  const BLUE_300  = P.coverTag
+  const BRAND_400 = P.accent       // bullets, accent marks
+  const BRAND_600 = P.accentDeep   // accent bar, badges, table head fill
+  const SURFACE   = P.surface      // card / box fill
+  const SLATE_600 = P.pageNum
 
   const W = 13.33  // slide width  (inches)
   const H = 7.5    // slide height
@@ -69,13 +116,13 @@ export async function exportToPptx(slides: Slide[]) {
       })
       s.addText(data.title ?? '', {
         x: 0.8, y: 2.0, w: W - 1.6, h: 1.4,
-        fontSize: 44, bold: true, color: WHITE,
+        fontSize: 44, bold: true, color: P.coverTitle,
         align: 'center', valign: 'middle',
       })
       if (data.subtitle) {
         s.addText(data.subtitle, {
           x: 0.8, y: 3.6, w: W - 1.6, h: 0.7,
-          fontSize: 24, color: BLUE_200,
+          fontSize: 24, color: P.coverSubtitle,
           align: 'center',
         })
       }
@@ -109,7 +156,7 @@ export async function exportToPptx(slides: Slide[]) {
     if (data.subtitle) {
       s.addText(data.subtitle, {
         x: 0.2, y: offsetY, w: W - 0.4, h: 0.4,
-        fontSize: 15, color: BLUE_200, italic: true,
+        fontSize: 15, color: P.subtitle, italic: true,
       })
       offsetY += 0.45
     }
@@ -121,7 +168,7 @@ export async function exportToPptx(slides: Slide[]) {
       })
       s.addText(data.quote, {
         x: 0.4, y: offsetY, w: W - 0.6, h: 0.55,
-        fontSize: 14, color: BLUE_200, italic: true,
+        fontSize: 14, color: P.subtitle, italic: true,
       })
       offsetY += 0.65
     }
