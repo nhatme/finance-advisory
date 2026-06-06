@@ -41,6 +41,114 @@ providers — with transparent, explainable reasoning and compliance guardrails.
 
 ---
 
+## How to Run
+
+### Windows & Mac — Docker (recommended, no setup required)
+
+No Python, no Node.js, no scripts needed. Docker handles everything inside containers.
+
+**Step 1 — Install Docker Desktop**
+
+Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your OS.
+Start it and wait until the icon is steady (whale in taskbar on Windows, menu bar icon on Mac).
+
+**Step 2 — Start the app**
+
+Windows (Command Prompt or PowerShell):
+```bat
+cd path\to\finance-advisory
+docker compose up --build
+```
+
+Mac (Terminal):
+```bash
+cd path/to/finance-advisory
+docker compose up --build
+```
+
+First run takes a few minutes — Docker downloads base images and installs all dependencies automatically.
+
+**Step 3 — Open the app**
+
+| Service | URL |
+|---|---|
+| Web UI | http://localhost:3000 |
+| API | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
+| Ollama (local LLM) | http://localhost:11434 |
+
+**Stop:**
+
+```bat
+docker compose down
+```
+
+**Full reset** (wipe all data and start clean):
+```bat
+docker compose down -v
+```
+
+**Useful Docker commands:**
+
+| Command | What it does |
+|---|---|
+| `docker compose up --build` | Build images and start all services |
+| `docker compose up` | Start without rebuilding (faster after first run) |
+| `docker compose down` | Stop and remove containers |
+| `docker compose down -v` | Stop + wipe all data volumes |
+| `docker compose logs -f api` | Stream backend logs only |
+| `docker compose logs -f web` | Stream frontend logs only |
+
+**Optional — enable AI rationale**
+
+Without an API key the app runs in **stub mode** (rule-based scoring, fully functional) — only the
+2-sentence AI rationale per product is skipped. To enable it:
+
+Windows:
+```bat
+copy backend\.env.example backend\.env
+:: Open backend\.env in Notepad, set ANTHROPIC_API_KEY or OPENAI_API_KEY, then:
+docker compose up --build
+```
+
+Mac:
+```bash
+cp backend/.env.example backend/.env
+# Open backend/.env, set ANTHROPIC_API_KEY or OPENAI_API_KEY, then:
+docker compose up --build
+```
+
+---
+
+### Linux / WSL2 — one command
+
+```bash
+bash dev.sh
+```
+
+`dev.sh` is the single entry point. It auto-detects a first run, sets up everything, then starts
+both services with colour-coded logs in one terminal.
+
+| Command | What it does |
+|---|---|
+| `bash dev.sh` | Auto-setup on first run, then start API + Web |
+| `bash dev.sh --setup` | Force re-run setup (reinstall deps, re-seed DB), then start |
+| `bash dev.sh --stop` | Kill running API / Web processes from a previous session |
+
+Press `Ctrl+C` to stop. Logs are saved to `.logs/api.log` and `.logs/web.log`.
+
+**Shell scripts reference** (you only ever need `dev.sh` for local dev):
+
+| Script | Purpose |
+|---|---|
+| `dev.sh` | **Start here** — setup + start everything |
+| `setup.sh` | Prepare only (no server start) — useful for CI |
+| `backend/run.sh` | Backend only — start API without the frontend |
+| `backend/entrypoint.sh` | Docker only — called by `docker-compose.yml` |
+| `slides/build.sh` | Rebuild slides after editing `slides/deck.md` |
+
+---
+
 ## Agent Pipeline
 
 Each request flows through four agents in a fixed sequence. Every agent reads from and writes to a
@@ -211,18 +319,23 @@ fall back to deterministic scoring and templates.
 ```
 web/
 ├── app/
-│   ├── page.tsx          # Main page: ProfileForm + Recommendations
-│   └── about/page.tsx
+│   ├── (main)/
+│   │   ├── page.tsx          # Main page: ProfileForm + Recommendations + Report button
+│   │   └── about/page.tsx    # Static about page
+│   └── slides/page.tsx       # Built-in slide deck (keyboard navigation, fullscreen)
 ├── components/
-│   ├── profile-form.tsx  # User input form
-│   ├── recommendations.tsx
-│   ├── product-card.tsx  # Single product card with score breakdown
-│   ├── comparison-table.tsx
-│   ├── trace-panel.tsx   # Agent execution trace (debug panel)
-│   └── disclaimer.tsx
+│   ├── profile-form.tsx      # User input form
+│   ├── recommendations.tsx   # ComparisonTable + ProductCards + TracePanel
+│   ├── product-card.tsx      # Score ring, bars, pros/cons, LLM rationale
+│   ├── comparison-table.tsx  # Top-3 side-by-side attribute table
+│   ├── trace-panel.tsx       # Agent execution trace sidebar
+│   ├── report.tsx            # Full-page report modal with radar charts + print/PDF
+│   ├── nav.tsx               # Sticky header
+│   └── disclaimer.tsx        # Footer disclaimer
 └── lib/
-    ├── api.ts            # fetch wrapper for POST /recommend
-    └── types.ts          # TypeScript mirrors of backend Pydantic schemas
+    ├── api.ts                # fetch wrapper — falls back to mock if backend unreachable
+    ├── types.ts              # TypeScript mirrors of all Pydantic schemas
+    └── format.ts             # vnd(), pct(), label maps
 ```
 
 ---
@@ -231,199 +344,32 @@ web/
 
 ```
 finance-advisory/
+├── CLAUDE.md               # AI session context — read this first in every session
+├── README.md               # This file
+├── dev.sh                  # Linux/WSL2 entry point — setup + start everything
+├── setup.sh                # Prepare only (no server start) — used by dev.sh internally
+├── docker-compose.yml      # Windows/Mac/Linux Docker setup
+├── ke-hoach-tong-quan.md   # Full project plan (Vietnamese)
 ├── backend/
-│   ├── app/
-│   │   ├── agents/       # Profiler, Researcher, Recommender, Compliance + shared state
-│   │   ├── api/          # FastAPI routers
-│   │   ├── core/         # Config, LLM abstraction, logging
-│   │   ├── db/           # SQLAlchemy models, session, repositories, Alembic migrations
-│   │   ├── schemas/      # Pydantic schemas (UserProfile, Recommendation, …)
-│   │   ├── vector/       # ChromaDB wrapper + sentence-transformer embeddings
-│   │   ├── graph.py      # LangGraph pipeline (singleton, lru_cache)
-│   │   └── main.py       # FastAPI app + CORS + lifespan
+│   ├── run.sh              # Backend only: setup + start uvicorn
+│   ├── entrypoint.sh       # Docker entrypoint: migrate + seed + start
 │   ├── data/
-│   │   ├── catalog.json  # Seed data for all products
-│   │   └── tc_docs/      # Per-product T&C Markdown files (indexed into ChromaDB)
-│   ├── scripts/seed.py   # Populates DB + vector store from catalog.json + tc_docs/
-│   └── tests/
-├── web/                  # Next.js frontend
-├── slides/               # Presentation deck (Marp)
-├── docker-compose.yml
-└── ke-hoach-tong-quan.md # Full project plan (Vietnamese)
+│   │   ├── catalog.json    # 15 products (seed source for SQL DB)
+│   │   └── tc_docs/        # 15 Markdown T&C files (seed source for ChromaDB)
+│   └── app/
+│       ├── agents/         # Profiler, Researcher, Recommender, Compliance
+│       ├── api/            # FastAPI routers
+│       ├── core/           # Config, LLM abstraction, logging
+│       ├── db/             # SQLAlchemy models, session, repositories, Alembic
+│       ├── schemas/        # Pydantic schemas
+│       ├── vector/         # ChromaDB wrapper + embeddings
+│       ├── graph.py        # LangGraph pipeline singleton
+│       └── main.py         # FastAPI app entry point
+├── web/                    # Next.js frontend
+└── slides/
+    ├── deck.md             # Marp presentation source
+    └── build.sh            # Builds deck.md → web/public/slides/index.html
 ```
-
----
-
-## Running Locally
-
-### The fast way — one command
-
-```bash
-bash dev.sh
-```
-
-That's it. `dev.sh` is the single entry point for local development.
-It handles everything automatically and streams colour-coded logs from both services in one terminal.
-
----
-
-### `dev.sh` — full reference
-
-| Command | What it does |
-|---|---|
-| `bash dev.sh` | Auto-setup on first run, then start API + Web |
-| `bash dev.sh --setup` | Force re-run setup (reinstall deps, re-seed DB), then start |
-| `bash dev.sh --stop` | Kill any running API / Web processes from a previous session |
-
-**What happens on first run (`bash dev.sh`):**
-
-1. Detects that `.venv`, `node_modules`, or `app.db` are missing → runs `setup.sh` automatically
-2. Copies `.env` files from examples if they don't exist yet
-3. Runs DB migrations + seeds the product catalog and vector index (idempotent)
-4. Starts the FastAPI backend with `uvicorn --reload` on port **8000**
-5. Starts the Next.js frontend with `npm run dev` on port **3000**
-6. Streams logs from both processes, colour-coded: `[api]` in blue, `[web]` in green
-7. Polls until both services respond, then prints the ready summary
-
-**On every subsequent run:**
-
-Steps 1–2 are skipped (already set up). Steps 3–7 run as normal.
-
-**Stopping:**
-
-Press `Ctrl+C` in the terminal — both processes are killed cleanly.
-Alternatively run `bash dev.sh --stop` from another terminal.
-
-**Logs:**
-
-Written to `.logs/api.log` and `.logs/web.log` (git-ignored).
-Useful if the terminal scrolled past an error.
-
-**LLM configuration** (optional — works without any key in stub mode):
-
-```bash
-# Edit backend/.env and set one of:
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-# or leave blank to use the rule-based stub (no LLM calls, full pipeline still works)
-```
-
----
-
-### Shell scripts — what each one does
-
-| Script | Purpose | When to use directly |
-|---|---|---|
-| `dev.sh` | **Central entry point** — setup + start everything | Always start here |
-| `setup.sh` | Install deps, migrate DB, seed data, build slides | CI pipelines, or when you want to prepare without starting |
-| `backend/run.sh` | Backend only — setup + start uvicorn | When you only want the API (e.g. testing with Postman) |
-| `backend/entrypoint.sh` | Docker only — migrate + seed + start | Called automatically by `docker-compose.yml` |
-| `slides/build.sh` | Build Marp slides → `web/public/slides/index.html` | Only needed if you edit `slides/deck.md` |
-
-> **Is `setup.sh` still necessary?**  
-> Yes — `dev.sh` calls it internally on first run, so you never need to run it manually for local dev.
-> It remains useful for CI environments, Docker builds, or any situation where you want to prepare
-> the project without starting the servers.
-
----
-
-### With Docker — recommended for Windows & Mac
-
-No Python, no Node.js, no `setup.sh` needed on your machine. Docker handles everything inside containers.
-
-**Requirement:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your OS, then make sure it is running before proceeding.
-
----
-
-#### Windows
-
-1. Install Docker Desktop for Windows and start it. Wait until the whale icon in the taskbar is steady (not animating).
-
-2. Open **Command Prompt** or **PowerShell**, navigate to the project folder, then run:
-
-```bat
-cd path\to\finance-advisory
-docker compose up --build
-```
-
-3. First run takes a few minutes (Docker downloads base images and installs all dependencies). When you see output from both `uit-lab-api` and `uit-lab-web` the app is ready.
-
-4. Open your browser and go to **http://localhost:3000**
-
-To stop, press `Ctrl+C` in the same window, then run:
-```bat
-docker compose down
-```
-
----
-
-#### Mac
-
-1. Install Docker Desktop for Mac (choose Apple Silicon or Intel depending on your chip) and start it. Wait until the Docker icon in the menu bar is steady.
-
-2. Open **Terminal**, navigate to the project folder, then run:
-
-```bash
-cd path/to/finance-advisory
-docker compose up --build
-```
-
-3. First run takes a few minutes. When both services are up, open **http://localhost:3000**
-
-To stop, press `Ctrl+C`, then run:
-```bash
-docker compose down
-```
-
----
-
-#### Services started by Docker
-
-| Service | URL | Notes |
-|---|---|---|
-| Web UI | http://localhost:3000 | Next.js frontend |
-| API | http://localhost:8000 | FastAPI backend |
-| API Docs | http://localhost:8000/docs | Swagger UI |
-| Ollama | http://localhost:11434 | Local LLM daemon |
-
----
-
-#### Optional — enable AI rationale
-
-Without any API key the app runs fully in **stub mode** (rule-based scoring, no LLM calls). Everything works except the 2-sentence AI rationale on each product card.
-
-To enable it, create `backend/.env` before running Docker:
-
-**Windows (Command Prompt):**
-```bat
-copy backend\.env.example backend\.env
-:: Open backend\.env in Notepad and add your key:
-::   ANTHROPIC_API_KEY=sk-ant-...
-::   or OPENAI_API_KEY=sk-...
-docker compose up --build
-```
-
-**Mac (Terminal):**
-```bash
-cp backend/.env.example backend/.env
-# Open backend/.env in any editor and add your key:
-#   ANTHROPIC_API_KEY=sk-ant-...
-#   or OPENAI_API_KEY=sk-...
-docker compose up --build
-```
-
----
-
-#### Useful Docker commands
-
-| Command | What it does |
-|---|---|
-| `docker compose up --build` | Build images and start all services |
-| `docker compose up` | Start without rebuilding (faster, use after first run) |
-| `docker compose down` | Stop and remove containers |
-| `docker compose down -v` | Stop + wipe all data (full clean reset) |
-| `docker compose logs -f api` | Stream logs from the backend only |
-| `docker compose logs -f web` | Stream logs from the frontend only |
 
 ---
 
