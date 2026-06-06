@@ -75,5 +75,6 @@ export function mockRecommend(profile: UserProfile): RecommendResponse {
       { agent: 'Recommender', action: 'score_rank_explain', summary: 'top-2 (mock)' },
       { agent: 'Compliance', action: 'suitability_check', summary: 'ok (mock)' },
     ],
+    llm_provider: 'stub',
   }
 }

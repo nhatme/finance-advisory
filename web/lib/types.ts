@@ -66,4 +66,5 @@ export interface RecommendResponse {
   recommendations: Recommendation[]
   compliance: ComplianceCheck
   trace: TraceEntry[]
+  llm_provider: string
 }
