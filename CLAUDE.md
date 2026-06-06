@@ -35,8 +35,9 @@ This is NOT a Q&A chatbot. It is a product-matching engine with explainable scor
 finance-advisory/
 ├── CLAUDE.md               ← this file
 ├── README.md               ← architecture + setup guide
-├── setup.sh                ← one-shot prep (venv, deps, migrate, seed, slides)
-├── docker-compose.yml      ← api + ollama + web
+├── setup.sh                ← one-shot prep (venv, deps, migrate, seed)
+├── docker-compose.yml      ← base: api + web (CPU)
+├── docker-compose.gpu.yml  ← GPU override (deltas only; layer with -f base -f gpu)
 ├── ke-hoach-tong-quan.md   ← full Vietnamese project plan
 │
 ├── backend/
@@ -94,7 +95,10 @@ finance-advisory/
 │   │   ├── layout.tsx      ← root layout: Nav + main + Disclaimer footer
 │   │   ├── page.tsx        ← main page: ProfileForm + Recommendations + Report modal
 │   │   ├── about/page.tsx  ← static about page
-│   │   └── slides/page.tsx ← iframe wrapper for /slides/index.html
+│   │   └── slides/         ← native React slide decks (no Marp)
+│   │       ├── page.tsx        ← deck chooser (Purpose vs Tech)
+│   │       ├── purpose/page.tsx ← Purpose & direction deck (blue theme)
+│   │       └── tech/page.tsx   ← Architecture & technical deck (emerald theme)
 │   ├── components/
 │   │   ├── profile-form.tsx    ← user input (age, income, goal, risk, horizon, notes)
 │   │   ├── recommendations.tsx ← ComparisonTable + ProductCards + TracePanel
@@ -102,20 +106,15 @@ finance-advisory/
 │   │   ├── comparison-table.tsx ← top-3 side-by-side attribute table
 │   │   ├── trace-panel.tsx     ← agent execution trace + compliance warnings (sidebar)
 │   │   ├── report.tsx          ← full-page report modal with print/PDF support
+│   │   ├── slide-deck.tsx      ← reusable themeable slide engine (renders both decks)
 │   │   ├── nav.tsx             ← sticky header with links to / /slides /about
 │   │   └── disclaimer.tsx      ← sticky footer disclaimer
-│   ├── lib/
-│   │   ├── api.ts          ← fetch wrapper; falls back to mock.ts if backend unreachable
-│   │   ├── types.ts        ← TS interfaces mirroring all Pydantic schemas
-│   │   ├── format.ts       ← vnd(), pct(), GOAL_LABEL, RISK_LABEL, RISK_COLOR, etc.
-│   │   └── mock.ts         ← static mock response (used when backend is down)
-│   └── public/
-│       └── slides/
-│           └── index.html  ← built by `bash slides/build.sh` (Marp → HTML)
-│
-└── slides/
-    ├── deck.md             ← Marp presentation source
-    └── build.sh            ← npx marp deck.md → web/public/slides/index.html
+│   └── lib/
+│       ├── api.ts          ← fetch wrapper; falls back to mock.ts if backend unreachable
+│       ├── types.ts        ← TS interfaces mirroring all Pydantic schemas
+│       ├── export-pptx.ts  ← client-side PPTX export (pptxgenjs) for both decks
+│       ├── format.ts       ← vnd(), pct(), GOAL_LABEL, RISK_LABEL, RISK_COLOR, etc.
+│       └── mock.ts         ← static mock response (used when backend is down)
 ```
 
 ---
@@ -221,7 +220,7 @@ Stub mode: pipeline runs fully rule-based, no LLM rationale generated. All tests
 ## Running locally
 
 ```bash
-# One-time setup (creates venv, installs deps, migrates, seeds DB + vectors, builds slides)
+# One-time setup (creates venv, installs deps, migrates, seeds DB + vectors)
 bash setup.sh
 
 # Start backend (http://localhost:8000)
@@ -230,9 +229,17 @@ bash backend/run.sh
 # Start frontend (http://localhost:3000) — separate terminal
 cd web && npm run dev
 
-# Or Docker (api + ollama + web, all-in-one)
+# Or Docker — CPU (api + web)
 docker compose up --build
+
+# Or Docker — GPU (layer the override; adds ollama on GPU)
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 ```
+
+**Config single-source rule:** app config + secrets (LLM_PROVIDER, API keys, models, CORS)
+live ONLY in `backend/.env` (read by `config.py`, and by both compose files via `env_file`).
+Compose `environment:` blocks hold ONLY orchestration — container paths, docker-network hosts,
+GPU deltas. Never duplicate app config into compose (it silently overrides `backend/.env`).
 
 Tests (stub LLM, tmp DB, no network):
 ```bash
@@ -248,7 +255,13 @@ pytest tests/ -v
 |---|---|---|
 | `/` | `app/page.tsx` | Profile form + recommendations + "Xem báo cáo" button |
 | `/about` | `app/about/page.tsx` | Static project description |
-| `/slides` | `app/slides/page.tsx` | iframe wrapping `public/slides/index.html` |
+| `/slides` | `app/slides/page.tsx` | Deck chooser → Purpose / Tech |
+| `/slides/purpose` | `app/slides/purpose/page.tsx` | Purpose & direction deck (blue) |
+| `/slides/tech` | `app/slides/tech/page.tsx` | Architecture & technical deck (emerald) |
+
+Slides are native React via the shared `components/slide-deck.tsx` engine (← / → nav, **F**
+fullscreen), each exportable to PowerPoint through `lib/export-pptx.ts`. The old Marp pipeline
+(`slides/deck.md`, `build.sh`, `public/slides/index.html`) has been removed.
 
 **Report modal** (`components/report.tsx`): opens as a fullscreen overlay from the main page.
 Shows profile snapshot, all recommendations with score bar charts, compliance section,

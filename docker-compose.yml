@@ -1,3 +1,17 @@
+# ─────────────────────────────────────────────────────────────────
+#  docker-compose.yml  —  CPU (default)
+#
+#  Usage:
+#    docker compose up --build
+#
+#  Config source of truth:
+#    - App config + secrets (LLM_PROVIDER, API keys, models, CORS) → backend/.env
+#      (read by the api container via env_file below; falls back to safe code
+#       defaults if backend/.env is absent — the app still runs in stub mode).
+#    - This file holds ONLY orchestration: ports, volumes, service wiring, and
+#      the container-path overrides that genuinely must differ from dev.
+# ─────────────────────────────────────────────────────────────────
+
 services:
   api:
     build:
@@ -10,13 +24,10 @@ services:
       - path: ./backend/.env
         required: false
     environment:
+      # Container-path overrides only — pin data to the mounted volume.
+      # Everything else (LLM, keys, CORS, models) comes from backend/.env.
       DATABASE_URL: sqlite:////app/data/app.db
       CHROMA_PERSIST_DIR: /app/data/chroma
-      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     volumes:
       - api_data:/app/data
     restart: unless-stopped

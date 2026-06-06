@@ -108,11 +108,17 @@ export async function exportToPptx(
 
     // ── COVER ────────────────────────────────────────────────────
     if (data.type === 'cover') {
-      // Background gradient rectangle
       s.addShape(pptx.ShapeType.rect, {
         x: 0, y: 0, w: W, h: H,
-        fill: { color: BG_CARD },
+        fill: { type: 'solid', color: BG_CARD },
         line: { color: BG_CARD, width: 0 },
+      })
+      // Dark overlay on right side to approximate the CSS gradient → slate-900
+      s.addShape(pptx.ShapeType.rect, {
+        x: W * 0.55, y: 0, w: W * 0.45, h: H,
+        fill: { type: 'solid', color: BG },
+        line: { width: 0 },
+        transparency: 60,
       })
       s.addText(data.title ?? '', {
         x: 0.8, y: 2.0, w: W - 1.6, h: 1.4,
@@ -175,7 +181,7 @@ export async function exportToPptx(
 
     // ── BULLETS ──────────────────────────────────────────────────
     if (data.type === 'bullets' && data.content) {
-      const rows = data.content.map(item => richText(item, { fontSize: 16, color: BLUE_200 }))
+      const rows = data.content.map(item => richText(item, { fontSize: 16, color: BLUE_200 }, P.strong))
       s.addText(
         rows.map((r, i) => [
           { text: '▸  ', options: { color: BRAND_400, fontSize: 16, bold: true } },
@@ -193,17 +199,20 @@ export async function exportToPptx(
         options: { bold: true, color: WHITE, fill: { color: BRAND_600 }, fontSize: 13 },
       }))
       const rows = data.table.rows.map(row =>
-        row.map(cell => ({
-          text: cell.replace(/\*\*/g, ''),
-          options: { color: BLUE_200, fontSize: 12 },
-        }))
+        row.map(cell => richText(cell, { color: BLUE_200, fontSize: 12 }, P.strong))
       )
-      s.addTable([head, ...rows], {
-        x: 0.2, y: offsetY, w: W - 0.4,
-        border: { type: 'solid', color: BRAND_600, pt: 0.5 },
-        rowH: 0.42,
-        color: BLUE_200,
-      })
+      s.addTable(
+        [
+          head,
+          ...rows.map(row => row.map(runs => ({ text: runs, options: {} }))),
+        ],
+        {
+          x: 0.2, y: offsetY, w: W - 0.4,
+          border: { type: 'solid', color: BRAND_600, pt: 0.5 },
+          rowH: 0.42,
+          color: BLUE_200,
+        }
+      )
     }
 
     // ── PIPELINE ─────────────────────────────────────────────────
@@ -225,7 +234,7 @@ export async function exportToPptx(
         // Step box
         s.addShape(pptx.ShapeType.roundRect, {
           x: 0.85, y, w: W - 1.1, h: 0.55,
-          fill: { color: '1E293B' },
+          fill: { color: SURFACE },
           line: { color: BRAND_600, width: 0.5 },
           rectRadius: 0.08,
         })
@@ -246,7 +255,7 @@ export async function exportToPptx(
         const x = 0.2 + i * (colW + 0.2)
         s.addShape(pptx.ShapeType.roundRect, {
           x, y: offsetY, w: colW, h: BODY_H - (offsetY - BODY_Y),
-          fill: { color: '1E293B' },
+          fill: { color: SURFACE },
           line: { color: BRAND_600, width: 0.5 },
           rectRadius: 0.12,
         })
@@ -273,7 +282,7 @@ export async function exportToPptx(
         const y = offsetY + row * (cardH + 0.15)
         s.addShape(pptx.ShapeType.roundRect, {
           x, y, w: cardW, h: cardH - 0.05,
-          fill: { color: '1E293B' },
+          fill: { color: SURFACE },
           line: { color: BRAND_600, width: 0.5 },
           rectRadius: 0.12,
         })
@@ -294,7 +303,7 @@ export async function exportToPptx(
       s.addText(
         data.content.map((item, i) => [
           { text: '→  ', options: { color: BRAND_400, fontSize: 13, bold: true } },
-          ...richText(item, { fontSize: 13, color: BLUE_200 }),
+          ...richText(item, { fontSize: 13, color: BLUE_200 }, P.strong),
           ...(i < data.content!.length - 1 ? [{ text: '\n', options: { fontSize: 4 } }] : []),
         ]).flat(),
         { x: 0.3, y: startY, w: W - 0.6, h: 0.8, valign: 'top' }
@@ -305,13 +314,13 @@ export async function exportToPptx(
     if (data.highlight) {
       s.addShape(pptx.ShapeType.roundRect, {
         x: 0.2, y: H - 0.75, w: W - 0.4, h: 0.5,
-        fill: { color: '1D4ED8' },
-        line: { color: BRAND_400, width: 0.8 },
+        fill: { color: P.highlightBg },
+        line: { color: P.highlightLine, width: 0.8 },
         rectRadius: 0.08,
       })
       s.addText('→  ' + data.highlight, {
         x: 0.35, y: H - 0.75, w: W - 0.7, h: 0.5,
-        fontSize: 13, bold: true, color: BRAND_400, valign: 'middle',
+        fontSize: 13, bold: true, color: P.highlightText, valign: 'middle',
       })
     }
 
@@ -322,5 +331,5 @@ export async function exportToPptx(
     })
   }
 
-  await pptx.writeFile({ fileName: 'uit-lab-financial-advisor.pptx' })
+  await pptx.writeFile({ fileName })
 }

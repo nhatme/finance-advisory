@@ -1,57 +1,41 @@
 # ─────────────────────────────────────────────────────────────────
-#  docker-compose.gpu.yml  —  GPU variant
+#  docker-compose.gpu.yml  —  GPU OVERRIDE (layer on top of the base file)
 #
-#  Requirements on the host machine:
+#  This is NOT a standalone file. It contains ONLY the GPU-specific deltas;
+#  everything else is inherited from docker-compose.yml so there is a single
+#  source of truth and no duplicated config to keep in sync.
+#
+#  Requirements on the host:
 #    - NVIDIA GPU with driver >= 525
-#    - NVIDIA Container Toolkit  (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+#    - NVIDIA Container Toolkit
+#      https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 #
-#  Usage:
-#    docker compose -f docker-compose.gpu.yml up --build
+#  Usage (note BOTH -f flags, base first):
+#    docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#    docker compose -f docker-compose.yml -f docker-compose.gpu.yml down
 #
-#  What's different from docker-compose.yml (CPU):
+#  What it changes vs CPU:
 #    - Backend builds with TORCH_VARIANT=gpu  (CUDA 12.1 PyTorch, ~2 GB)
-#    - EMBEDDING_DEVICE=cuda  (sentence-transformers runs on GPU)
-#    - Ollama service included with NVIDIA GPU passthrough
-#    - LLM auto-detect order: Anthropic → OpenAI → Ollama (GPU) → stub
+#    - EMBEDDING_DEVICE=cuda  (sentence-transformers on GPU)
+#    - Adds an Ollama service with NVIDIA passthrough; api talks to it over
+#      the docker network at http://ollama:11434
+#  App config (LLM_PROVIDER, API keys, models, CORS) still lives in backend/.env.
 # ─────────────────────────────────────────────────────────────────
 
 services:
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
       args:
-        TORCH_VARIANT: gpu        # installs CUDA 12.1 PyTorch wheel
-    container_name: uit-lab-api
-    ports:
-      - "8000:8000"
-    env_file:
-      - path: ./backend/.env
-        required: false
+        TORCH_VARIANT: gpu          # CUDA 12.1 PyTorch wheel (~2 GB)
     environment:
-      DATABASE_URL: sqlite:////app/data/app.db
-      CHROMA_PERSIST_DIR: /app/data/chroma
-      EMBEDDING_DEVICE: cuda      # run sentence-transformers on GPU
-      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      OLLAMA_HOST: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
-      CORS_ORIGINS: http://localhost:3000
-    volumes:
-      - api_data:/app/data
+      # GPU/orchestration deltas only — merged onto the base environment.
+      EMBEDDING_DEVICE: cuda        # run sentence-transformers on GPU
+      OLLAMA_HOST: http://ollama:11434   # reach the ollama service over docker network
     depends_on:
       ollama:
         condition: service_healthy
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 8
-      start_period: 60s           # longer start — GPU torch init takes more time
+      start_period: 60s             # GPU torch init takes longer to warm up
     deploy:
       resources:
         reservations:
@@ -63,11 +47,9 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: uit-lab-ollama
-    # No host port binding — the api container reaches Ollama via Docker's internal
-    # network (http://ollama:11434) so no host port is needed.
-    # If you want to call Ollama from your host machine directly, add:
-    #   ports:
-    #     - "11435:11434"   ← use 11435 to avoid conflict with a local Ollama instance
+    # No host port binding — the api container reaches Ollama via the docker
+    # network (http://ollama:11434). To call it from the host, add:
+    #   ports: ["11435:11434"]   (11435 avoids clashing with a local Ollama)
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
@@ -85,25 +67,5 @@ services:
               count: all
               capabilities: [gpu]
 
-  web:
-    image: node:20-alpine
-    container_name: uit-lab-web
-    working_dir: /app
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-      NODE_ENV: development
-    volumes:
-      - ./web:/app
-      - web_node_modules:/app/node_modules
-    command: sh -c "npm install --silent && npm run dev"
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-
 volumes:
-  api_data:
   ollama_data:
-  web_node_modules:

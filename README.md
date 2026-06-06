@@ -120,14 +120,18 @@ docker run --rm --gpus all nvidia/cuda:12.1-base-ubuntu22.04 nvidia-smi
 
 **Start GPU version:**
 
+> `docker-compose.gpu.yml` is an **override layered on top of the base file** — it only holds the
+> GPU-specific deltas, so config lives in one place. Always pass **both** `-f` flags (base first).
+> App config (LLM provider, API keys, CORS) comes from `backend/.env`, same as CPU mode.
+
 Windows (PowerShell):
 ```powershell
-docker compose -f docker-compose.gpu.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 ```
 
 Mac / Linux:
 ```bash
-docker compose -f docker-compose.gpu.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 ```
 
 > **Note:** First run downloads ~3 GB (GPU PyTorch wheel + Ollama image). Subsequent starts reuse cached layers.
@@ -147,7 +151,7 @@ Once pulled, the API auto-detects Ollama and uses it for LLM rationale generatio
 
 **What changes in GPU mode vs CPU mode:**
 
-| | CPU (`docker-compose.yml`) | GPU (`docker-compose.gpu.yml`) |
+| | CPU (`docker-compose.yml`) | GPU (base + `docker-compose.gpu.yml`) |
 |---|---|---|
 | PyTorch build | CPU-only (~220 MB) | CUDA 12.1 (~2 GB) |
 | Embedding device | CPU | CUDA (GPU) |
@@ -157,10 +161,10 @@ Once pulled, the API auto-detects Ollama and uses it for LLM rationale generatio
 
 **Stop GPU version:**
 ```bash
-docker compose -f docker-compose.gpu.yml down
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml down
 
 # Full reset including Ollama model cache
-docker compose -f docker-compose.gpu.yml down -v
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml down -v
 ```
 
 **Optional — enable AI rationale**
@@ -209,7 +213,6 @@ Press `Ctrl+C` to stop. Logs are saved to `.logs/api.log` and `.logs/web.log`.
 | `setup.sh` | Prepare only (no server start) — useful for CI |
 | `backend/run.sh` | Backend only — start API without the frontend |
 | `backend/entrypoint.sh` | Docker only — called by `docker-compose.yml` |
-| `slides/build.sh` | Rebuild slides after editing `slides/deck.md` |
 
 ---
 
@@ -386,7 +389,10 @@ web/
 │   ├── (main)/
 │   │   ├── page.tsx          # Main page: ProfileForm + Recommendations + Report button
 │   │   └── about/page.tsx    # Static about page
-│   └── slides/page.tsx       # Built-in slide deck (keyboard navigation, fullscreen)
+│   └── slides/
+│       ├── page.tsx          # Deck chooser (Purpose vs Tech)
+│       ├── purpose/page.tsx  # Purpose & direction deck (blue theme)
+│       └── tech/page.tsx     # Architecture & technical deck (emerald theme)
 ├── components/
 │   ├── profile-form.tsx      # User input form
 │   ├── recommendations.tsx   # ComparisonTable + ProductCards + TracePanel
@@ -394,13 +400,18 @@ web/
 │   ├── comparison-table.tsx  # Top-3 side-by-side attribute table
 │   ├── trace-panel.tsx       # Agent execution trace sidebar
 │   ├── report.tsx            # Full-page report modal with radar charts + print/PDF
+│   ├── slide-deck.tsx        # Reusable themeable slide engine (renders both decks)
 │   ├── nav.tsx               # Sticky header
 │   └── disclaimer.tsx        # Footer disclaimer
 └── lib/
     ├── api.ts                # fetch wrapper — falls back to mock if backend unreachable
     ├── types.ts              # TypeScript mirrors of all Pydantic schemas
+    ├── export-pptx.ts        # Client-side PPTX export (pptxgenjs) for both decks
     └── format.ts             # vnd(), pct(), label maps
 ```
+
+Slides are native React (in `app/slides/`), navigable with ← / → and **F** for fullscreen,
+and each deck exports to PowerPoint via the **Xuất PPTX** button.
 
 ---
 
@@ -429,10 +440,7 @@ finance-advisory/
 │       ├── vector/         # ChromaDB wrapper + embeddings
 │       ├── graph.py        # LangGraph pipeline singleton
 │       └── main.py         # FastAPI app entry point
-├── web/                    # Next.js frontend
-└── slides/
-    ├── deck.md             # Marp presentation source
-    └── build.sh            # Builds deck.md → web/public/slides/index.html
+└── web/                    # Next.js frontend (slides live in app/slides/)
 ```
 
 ---
@@ -449,4 +457,4 @@ finance-advisory/
 | Embeddings | `intfloat/multilingual-e5-small` via sentence-transformers |
 | LLM providers | Anthropic (Claude), OpenAI (GPT-4o-mini), Ollama (local) |
 | Logging | structlog (structured JSON) |
-| Containerisation | Docker Compose (api + ollama + web) |
+| Containerisation | Docker Compose (api + web; GPU variant adds Ollama) |
