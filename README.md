@@ -66,7 +66,7 @@ cd path/to/finance-advisory
 docker compose up --build
 ```
 
-First run takes a few minutes — Docker downloads base images and installs all dependencies automatically.
+First run downloads ~500 MB total (Python slim + CPU PyTorch + Node Alpine). Subsequent starts reuse cached layers and take seconds.
 
 **Step 3 — Open the app**
 
@@ -75,7 +75,6 @@ First run takes a few minutes — Docker downloads base images and installs all 
 | Web UI | http://localhost:3000 |
 | API | http://localhost:8000 |
 | API Docs | http://localhost:8000/docs |
-| Ollama (local LLM) | http://localhost:11434 |
 
 **Stop:**
 
@@ -88,7 +87,7 @@ docker compose down
 docker compose down -v
 ```
 
-**Useful Docker commands:**
+**Useful Docker commands (CPU):**
 
 | Command | What it does |
 |---|---|
@@ -98,6 +97,71 @@ docker compose down -v
 | `docker compose down -v` | Stop + wipe all data volumes |
 | `docker compose logs -f api` | Stream backend logs only |
 | `docker compose logs -f web` | Stream frontend logs only |
+
+---
+
+### With Docker — GPU version (for researchers / experimenters)
+
+Use this if you have an NVIDIA GPU and want to run the embedding model and Ollama local LLM on GPU.
+
+**Additional requirements:**
+- NVIDIA GPU with driver **≥ 525**
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed on the host
+
+**Verify your setup before starting:**
+
+```bash
+# Should print your GPU name
+nvidia-smi
+
+# Should print "Hello from CUDA"
+docker run --rm --gpus all nvidia/cuda:12.1-base-ubuntu22.04 nvidia-smi
+```
+
+**Start GPU version:**
+
+Windows (PowerShell):
+```powershell
+docker compose -f docker-compose.gpu.yml up --build
+```
+
+Mac / Linux:
+```bash
+docker compose -f docker-compose.gpu.yml up --build
+```
+
+> **Note:** First run downloads ~3 GB (GPU PyTorch wheel + Ollama image). Subsequent starts reuse cached layers.
+
+**After first start — pull a local LLM model into Ollama:**
+
+```bash
+# Pull the default model (qwen2.5:3b, ~2 GB)
+docker exec -it uit-lab-ollama ollama pull qwen2.5:3b
+
+# Or a larger, more capable model
+docker exec -it uit-lab-ollama ollama pull llama3.2:3b
+docker exec -it uit-lab-ollama ollama pull qwen2.5:7b
+```
+
+Once pulled, the API auto-detects Ollama and uses it for LLM rationale generation.
+
+**What changes in GPU mode vs CPU mode:**
+
+| | CPU (`docker-compose.yml`) | GPU (`docker-compose.gpu.yml`) |
+|---|---|---|
+| PyTorch build | CPU-only (~220 MB) | CUDA 12.1 (~2 GB) |
+| Embedding device | CPU | CUDA (GPU) |
+| Ollama | Not included | Included with GPU passthrough |
+| LLM fallback order | Anthropic → OpenAI → stub | Anthropic → OpenAI → Ollama (GPU) → stub |
+| Download size | ~500 MB | ~3 GB |
+
+**Stop GPU version:**
+```bash
+docker compose -f docker-compose.gpu.yml down
+
+# Full reset including Ollama model cache
+docker compose -f docker-compose.gpu.yml down -v
+```
 
 **Optional — enable AI rationale**
 

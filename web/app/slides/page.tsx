@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { exportToPptx } from '@/lib/export-pptx'
 
 const SLIDES = [
   {
@@ -199,16 +200,28 @@ function renderText(s: string) {
   )
 }
 
-function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
+function SlideContent({ slide, fs }: { slide: typeof SLIDES[number]; fs: boolean }) {
+  const t = {
+    h1:       fs ? 'text-5xl'  : 'text-4xl',
+    h2:       fs ? 'text-3xl'  : 'text-2xl',
+    sub:      fs ? 'text-2xl'  : 'text-xl',
+    body:     fs ? 'text-lg'   : 'text-sm',
+    small:    fs ? 'text-base' : 'text-xs',
+    tag:      fs ? 'text-base' : 'text-sm',
+    gap:      fs ? 'gap-6'     : 'gap-4',
+    listGap:  fs ? 'space-y-4' : 'space-y-2.5',
+    icon:     fs ? 'text-4xl'  : 'text-3xl',
+  }
+
   if (slide.type === 'cover') {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-        <div className="text-4xl font-extrabold tracking-tight text-white leading-tight">
+      <div className="flex flex-col items-center justify-center h-full text-center gap-5">
+        <div className={`${t.h1} font-extrabold tracking-tight text-white leading-tight`}>
           {slide.title}
         </div>
-        {slide.subtitle && <div className="text-xl text-blue-200 font-medium">{slide.subtitle}</div>}
+        {slide.subtitle && <div className={`${t.sub} text-blue-200 font-medium`}>{slide.subtitle}</div>}
         {slide.tag && (
-          <div className="mt-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm text-blue-100">
+          <div className={`mt-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 ${t.tag} text-blue-100`}>
             {slide.tag}
           </div>
         )}
@@ -217,21 +230,21 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
   }
 
   return (
-    <div className="flex flex-col h-full gap-4">
-      <h2 className="text-2xl font-extrabold text-white shrink-0">{slide.title}</h2>
+    <div className={`flex flex-col h-full ${t.gap}`}>
+      <h2 className={`${t.h2} font-extrabold text-white shrink-0`}>{slide.title}</h2>
       {'subtitle' in slide && slide.subtitle && (
-        <p className="text-blue-200 text-base -mt-2">{slide.subtitle}</p>
+        <p className={`text-blue-200 ${t.sub} -mt-2`}>{slide.subtitle}</p>
       )}
       {'quote' in slide && slide.quote && (
-        <blockquote className="border-l-4 border-brand-400 pl-4 text-blue-100 italic text-base">
+        <blockquote className={`border-l-4 border-brand-400 pl-4 text-blue-100 italic ${t.body}`}>
           {slide.quote}
         </blockquote>
       )}
 
       {slide.type === 'bullets' && slide.content && (
-        <ul className="space-y-2.5 flex-1">
+        <ul className={`${t.listGap} flex-1`}>
           {(slide.content as string[]).map((item, i) => (
-            <li key={i} className="flex gap-3 text-blue-50 text-sm">
+            <li key={i} className={`flex gap-3 text-blue-50 ${t.body}`}>
               <span className="mt-0.5 text-brand-400 shrink-0">▸</span>
               <span>{renderText(item)}</span>
             </li>
@@ -241,7 +254,7 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
 
       {slide.type === 'table' && 'table' in slide && (
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-sm">
+          <table className={`w-full ${t.body}`}>
             <thead>
               <tr>
                 {slide.table!.head.map((h, i) => (
@@ -266,15 +279,15 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
 
       {slide.type === 'pipeline' && 'steps' in slide && (
         <div className="flex-1 flex items-center">
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex flex-col gap-3 w-full">
             {(slide as any).steps.map((s: {name:string; desc:string}, i: number) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white font-bold text-sm shadow-md">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white font-bold ${t.body} shadow-md`}>
                   {i + 1}
                 </div>
-                <div className="flex-1 rounded-xl bg-white/10 px-4 py-2">
-                  <span className="font-semibold text-white">{s.name}</span>
-                  <span className="text-blue-200 text-sm ml-2">→ {s.desc}</span>
+                <div className="flex-1 rounded-xl bg-white/10 px-4 py-2.5">
+                  <span className={`font-semibold text-white ${t.body}`}>{s.name}</span>
+                  <span className={`text-blue-200 ${t.body} ml-2`}>→ {s.desc}</span>
                 </div>
               </div>
             ))}
@@ -285,9 +298,9 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
       {slide.type === 'two-col' && 'cols' in slide && (
         <div className="flex-1 grid grid-cols-2 gap-4">
           {(slide as any).cols.map((col: {title:string; body:string}, i: number) => (
-            <div key={i} className="rounded-2xl bg-white/10 p-4">
-              <div className="font-semibold text-white mb-2">{col.title}</div>
-              <p className="text-blue-100 text-sm leading-relaxed">{col.body}</p>
+            <div key={i} className="rounded-2xl bg-white/10 p-5">
+              <div className={`font-semibold text-white mb-2 ${t.body}`}>{col.title}</div>
+              <p className={`text-blue-100 ${t.small} leading-relaxed`}>{col.body}</p>
             </div>
           ))}
         </div>
@@ -296,18 +309,18 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
       {slide.type === 'cards' && 'cards' in slide && (
         <div className="flex-1 grid grid-cols-2 gap-3">
           {(slide as any).cards.map((c: {icon:string; label:string}, i: number) => (
-            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
-              <span className="text-3xl">{c.icon}</span>
-              <span className="text-white font-medium">{c.label}</span>
+            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white/10 p-5">
+              <span className={t.icon}>{c.icon}</span>
+              <span className={`text-white font-medium ${t.body}`}>{c.label}</span>
             </div>
           ))}
         </div>
       )}
 
       {'content' in slide && slide.content && slide.type !== 'bullets' && (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {(slide.content as string[]).map((item, i) => (
-            <li key={i} className="flex gap-2 text-blue-100 text-sm">
+            <li key={i} className={`flex gap-2 text-blue-100 ${t.body}`}>
               <span className="text-brand-400 shrink-0">→</span>
               <span>{renderText(item)}</span>
             </li>
@@ -316,7 +329,7 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
       )}
 
       {'highlight' in slide && slide.highlight && (
-        <div className="rounded-xl border border-brand-400/40 bg-brand-500/20 px-4 py-2.5 text-sm font-medium text-brand-200">
+        <div className={`rounded-xl border border-brand-400/40 bg-brand-500/20 px-4 py-3 ${t.body} font-medium text-brand-200`}>
           → {(slide as any).highlight}
         </div>
       )}
@@ -325,10 +338,20 @@ function SlideContent({ slide }: { slide: typeof SLIDES[number] }) {
 }
 
 export default function SlidesPage() {
-  const [idx, setIdx]           = useState(0)
+  const [idx, setIdx]               = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const containerRef            = useRef<HTMLDivElement>(null)
-  const total                   = SLIDES.length
+  const [exporting, setExporting]   = useState(false)
+  const containerRef                = useRef<HTMLDivElement>(null)
+  const total                       = SLIDES.length
+
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    try {
+      await exportToPptx(SLIDES as any)
+    } finally {
+      setExporting(false)
+    }
+  }, [])
 
   const prev = useCallback(() => setIdx(i => Math.max(0, i - 1)), [])
   const next = useCallback(() => setIdx(i => Math.min(total - 1, i + 1)), [total])
@@ -388,6 +411,29 @@ export default function SlidesPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-slate-500 text-sm">{idx + 1} / {total}</span>
+
+          {/* Export PPTX */}
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            title="Xuất file PowerPoint (.pptx)"
+            className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 disabled:opacity-50 transition-colors"
+          >
+            {exporting ? (
+              <>
+                <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                Đang xuất...
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 2v8M5 7l3 3 3-3M3 13h10"/>
+                </svg>
+                Xuất PPTX
+              </>
+            )}
+          </button>
+
           <button
             onClick={toggleFullscreen}
             title={isFullscreen ? 'Thoát toàn màn hình (Esc)' : 'Toàn màn hình (F)'}
@@ -413,37 +459,50 @@ export default function SlidesPage() {
       </div>
 
       {/* Slide area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className={`w-full transition-all duration-300 ${isFullscreen ? 'max-w-6xl' : 'max-w-4xl'}`}>
+      <div className={`flex-1 flex flex-col items-center justify-center ${isFullscreen ? 'p-0' : 'p-6'}`}>
+        <div
+          className="w-full transition-all duration-300"
+          style={isFullscreen
+            ? { width: 'min(100vw, calc((100vh - 56px) * 16 / 9))' }
+            : { maxWidth: '900px' }
+          }
+        >
           <div
             key={idx}
-            className="animate-fade-in rounded-3xl bg-gradient-to-br from-brand-900 via-brand-800 to-slate-900 p-10 shadow-2xl"
-            style={{ minHeight: isFullscreen ? 'calc(100vh - 180px)' : '460px' }}
+            className="animate-fade-in bg-gradient-to-br from-brand-900 via-brand-800 to-slate-900 shadow-2xl w-full"
+            style={{
+              aspectRatio: '16/9',
+              overflow: 'hidden',
+              padding: isFullscreen ? '3% 4%' : '40px',
+              borderRadius: isFullscreen ? '0' : '24px',
+            }}
           >
-            <SlideContent slide={slide} />
+            <SlideContent slide={slide} fs={isFullscreen} />
           </div>
 
-          {/* Navigation */}
-          <div className="mt-5 flex items-center justify-between">
-            <button onClick={prev} disabled={idx === 0}
-              className="btn-ghost text-white border-white/20 bg-white/10 hover:bg-white/20 disabled:opacity-30">
-              ← Trước
-            </button>
+          {/* Navigation — hidden in fullscreen to maximise slide height */}
+          {!isFullscreen && (
+            <div className="mt-5 flex items-center justify-between">
+              <button onClick={prev} disabled={idx === 0}
+                className="btn-ghost text-white border-white/20 bg-white/10 hover:bg-white/20 disabled:opacity-30">
+                ← Trước
+              </button>
 
-            <div className="flex gap-1.5">
-              {SLIDES.map((_, i) => (
-                <button key={i} onClick={() => setIdx(i)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === idx ? 'w-6 bg-brand-400' : 'w-1.5 bg-slate-600 hover:bg-slate-400'
-                  }`} />
-              ))}
+              <div className="flex gap-1.5">
+                {SLIDES.map((_, i) => (
+                  <button key={i} onClick={() => setIdx(i)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === idx ? 'w-6 bg-brand-400' : 'w-1.5 bg-slate-600 hover:bg-slate-400'
+                    }`} />
+                ))}
+              </div>
+
+              <button onClick={next} disabled={idx === total - 1}
+                className="btn-ghost text-white border-white/20 bg-white/10 hover:bg-white/20 disabled:opacity-30">
+                Tiếp →
+              </button>
             </div>
-
-            <button onClick={next} disabled={idx === total - 1}
-              className="btn-ghost text-white border-white/20 bg-white/10 hover:bg-white/20 disabled:opacity-30">
-              Tiếp →
-            </button>
-          </div>
+          )}
         </div>
       </div>
     </div>

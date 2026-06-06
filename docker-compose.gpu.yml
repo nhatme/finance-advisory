@@ -1,0 +1,109 @@
+# ─────────────────────────────────────────────────────────────────
+#  docker-compose.gpu.yml  —  GPU variant
+#
+#  Requirements on the host machine:
+#    - NVIDIA GPU with driver >= 525
+#    - NVIDIA Container Toolkit  (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+#
+#  Usage:
+#    docker compose -f docker-compose.gpu.yml up --build
+#
+#  What's different from docker-compose.yml (CPU):
+#    - Backend builds with TORCH_VARIANT=gpu  (CUDA 12.1 PyTorch, ~2 GB)
+#    - EMBEDDING_DEVICE=cuda  (sentence-transformers runs on GPU)
+#    - Ollama service included with NVIDIA GPU passthrough
+#    - LLM auto-detect order: Anthropic → OpenAI → Ollama (GPU) → stub
+# ─────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        TORCH_VARIANT: gpu        # installs CUDA 12.1 PyTorch wheel
+    container_name: uit-lab-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DATABASE_URL: sqlite:////app/data/app.db
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      EMBEDDING_DEVICE: cuda      # run sentence-transformers on GPU
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - api_data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s           # longer start — GPU torch init takes more time
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: uit-lab-ollama
+    # No host port binding — the api container reaches Ollama via Docker's internal
+    # network (http://ollama:11434) so no host port is needed.
+    # If you want to call Ollama from your host machine directly, add:
+    #   ports:
+    #     - "11435:11434"   ← use 11435 to avoid conflict with a local Ollama instance
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  web:
+    image: node:20-alpine
+    container_name: uit-lab-web
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: development
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+    command: sh -c "npm install --silent && npm run dev"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  api_data:
+  ollama_data:
+  web_node_modules:
