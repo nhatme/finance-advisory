@@ -7,6 +7,7 @@ const SLIDES: Slide[] = [
     type: 'cover',
     title: 'Kiến trúc & Kỹ thuật',
     subtitle: 'RAG + Multi-agent · Hybrid Retrieval · Explainable Scoring',
+    members: ['Phan Văn Nhật — 26410083', 'Trương Quốc Bảo — 26410008'],
     tag: 'UIT-LAB · Technical Deep-Dive 2026',
   },
 

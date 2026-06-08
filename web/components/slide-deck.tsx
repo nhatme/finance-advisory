@@ -17,6 +17,7 @@ export type Slide = {
   title?: string
   subtitle?: string
   tag?: string
+  members?: string[]
   content?: string[] | null
   quote?: string
   highlight?: string
@@ -95,6 +96,13 @@ function SlideContent({ slide, fs, theme }: { slide: Slide; fs: boolean; theme: 
           {slide.title}
         </div>
         {slide.subtitle && <div className={`${t.sub} font-medium`} style={{ color: theme.coverSubtitle }}>{slide.subtitle}</div>}
+        {slide.members && slide.members.length > 0 && (
+          <div className="flex flex-col items-center gap-1 mt-1">
+            {slide.members.map((m, i) => (
+              <div key={i} className={`${t.body} font-medium`} style={{ color: theme.coverSubtitle }}>{m}</div>
+            ))}
+          </div>
+        )}
         {slide.tag && (
           <div
             className={`mt-2 rounded-full px-4 py-1.5 ${t.tag}`}
