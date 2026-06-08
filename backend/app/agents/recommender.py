@@ -109,7 +109,9 @@ def _llm_rationale(llm, product: Product, profile, reasoning: Reasoning, citatio
     citation_text = "\n".join(f"- {c.snippet}" for c in citations[:2]) or "(không có)"
     prompt = (
         f"HỒ SƠ: tuổi {profile.age}, thu nhập {_vnd(profile.monthly_income)}/tháng, "
-        f"mục tiêu '{profile.goal.value}', khẩu vị rủi ro '{profile.risk_appetite.value}'.\n"
+        f"mục tiêu '{profile.goal.value}', khẩu vị rủi ro '{profile.risk_appetite.value}'"
+        + (f", ghi chú: '{profile.notes}'" if profile.notes else "")
+        + ".\n"
         f"SẢN PHẨM: {product.name} ({product.provider}, {product.type}, rủi ro {product.risk_level}).\n"
         f"ĐIỂM: tổng {reasoning.score} — {json.dumps(reasoning.score_breakdown, ensure_ascii=False)}.\n"
         f"PROS: {reasoning.pros}\nCONS: {reasoning.cons}\n"

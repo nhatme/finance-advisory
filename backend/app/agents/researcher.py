@@ -81,4 +81,7 @@ def _build_query(profile) -> str:
         "medium": "rủi ro cân bằng",
         "high": "chấp nhận biến động",
     }.get(profile.risk_appetite.value, "")
-    return f"{goal_text}. {risk_text}. Thu nhập {profile.monthly_income:,.0f}đ/tháng."
+    query = f"{goal_text}. {risk_text}. Thu nhập {profile.monthly_income:,.0f}đ/tháng."
+    if profile.notes:
+        query += f" {profile.notes}"
+    return query
