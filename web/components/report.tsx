@@ -317,6 +317,13 @@ export default function Report({ data, profile, onClose }: Props) {
                   </div>
                 )}
 
+                {rec.reasoning.advisor_note && (
+                  <div className="mt-2 flex gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-900">
+                    <span className="shrink-0">📝</span>
+                    <p>{rec.reasoning.advisor_note}</p>
+                  </div>
+                )}
+
                 <div className="mt-3 border-t border-slate-100 pt-2.5 text-xs text-slate-400 flex justify-between">
                   <span>Cập nhật: {rec.product.updated_at}</span>
                   <a href={rec.product.source_url} target="_blank" rel="noreferrer noopener"

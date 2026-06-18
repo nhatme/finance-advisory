@@ -17,6 +17,7 @@ class Reasoning(BaseModel):
     score: float
     score_breakdown: dict[str, float]
     llm_rationale: Optional[str] = None
+    advisor_note: Optional[str] = None
     citations: list[Citation] = []
 
 

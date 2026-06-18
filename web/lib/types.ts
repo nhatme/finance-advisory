@@ -35,6 +35,7 @@ export interface Reasoning {
   score: number
   score_breakdown: Record<string, number>
   llm_rationale?: string | null
+  advisor_note?: string | null
   citations?: Citation[]
 }
 

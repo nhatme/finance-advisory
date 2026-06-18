@@ -125,6 +125,34 @@ def _llm_rationale(llm, product: Product, profile, reasoning: Reasoning, citatio
         return ""
 
 
+ADVISOR_SYSTEM_PROMPT = (
+    "Bạn là trợ lý tư vấn tài chính, viết bằng tiếng Việt. "
+    "Người dùng đã để lại một ghi chú cá nhân về hoàn cảnh/dự định của họ. "
+    "Dựa trên ghi chú đó và sản phẩm được đề xuất, viết một gợi ý ngắn gọn (tối đa 2 câu) "
+    "liên hệ trực tiếp ghi chú với sản phẩm này. "
+    "KHÔNG khuyến nghị đầu tư, KHÔNG bịa số liệu, KHÔNG lặp lại nội dung đã giải thích trước đó, "
+    "không thêm disclaimer."
+)
+
+
+def _advisor_note(llm, product: Product, profile, reasoning: Reasoning) -> str:
+    if llm.name == "stub" or not profile.notes:
+        return ""
+    prompt = (
+        f"GHI CHÚ CỦA NGƯỜI DÙNG: '{profile.notes}'\n"
+        f"HỒ SƠ: tuổi {profile.age}, thu nhập {_vnd(profile.monthly_income)}/tháng, "
+        f"mục tiêu '{profile.goal.value}', khẩu vị rủi ro '{profile.risk_appetite.value}'.\n"
+        f"SẢN PHẨM ĐƯỢC ĐỀ XUẤT: {product.name} ({product.provider}, {product.type}, rủi ro {product.risk_level}).\n"
+        f"ĐIỂM PHÙ HỢP: {reasoning.score}.\n\n"
+        "Viết tối đa 2 câu gợi ý dành riêng cho người dùng, liên hệ trực tiếp tới ghi chú của họ."
+    )
+    try:
+        return llm.complete(ADVISOR_SYSTEM_PROMPT, prompt, max_tokens=180, temperature=0.2).strip()
+    except Exception as e:
+        log.warning("advisor_note_failed", product=product.id, error=str(e))
+        return ""
+
+
 def recommender_node(state: AgentState, top_k: int = 5) -> AgentState:
     profile = state["profile"]
     candidates: list[Product] = state.get("candidates", [])
@@ -163,6 +191,9 @@ def recommender_node(state: AgentState, top_k: int = 5) -> AgentState:
         rationale = _llm_rationale(llm, product, profile, rec.reasoning, rec.reasoning.citations)
         if rationale:
             rec.reasoning.llm_rationale = rationale
+        advisor_note = _advisor_note(llm, product, profile, rec.reasoning)
+        if advisor_note:
+            rec.reasoning.advisor_note = advisor_note
 
     for i, rec in enumerate(diversified):
         rec.rank = i + 1

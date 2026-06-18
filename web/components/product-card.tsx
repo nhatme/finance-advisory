@@ -141,6 +141,19 @@ export default function ProductCard({ rec }: { rec: Recommendation }) {
         </div>
       )}
 
+      {/* Advisor note — based on user's "Ghi chú" */}
+      {rec.reasoning.advisor_note && (
+        <div className="mt-2.5 flex gap-2.5 rounded-xl border border-amber-100 bg-gradient-to-r from-amber-50 to-white p-3">
+          <span className="mt-0.5 text-base shrink-0">📝</span>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+              Gợi ý từ chuyên gia cho ghi chú của bạn
+            </div>
+            <p className="mt-0.5 text-sm text-amber-900">{rec.reasoning.advisor_note}</p>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-400">
         <span>Cập nhật: {p.updated_at}</span>
